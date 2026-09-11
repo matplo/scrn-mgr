@@ -9,15 +9,15 @@ is on.
 
 ## Install (dev)
 
-This project is developed inside a [`henv`](https://github.com/) environment:
+This project is developed inside a named [`henv`](https://github.com/) environment, `devel`:
 
 ```bash
-henv -x pip install -e ".[dev]"
-henv -x pytest -q
+henv -n devel -x pip install -e ".[dev]"
+henv -n devel -x pytest -q
 ```
 
 `python`, `pytest`, and the installed `scrn-mgr` executable are all run the
-same way: `henv -x <command> ...`.
+same way: `henv -n devel -x <command> ...`.
 
 ## Quick start (Python API)
 
