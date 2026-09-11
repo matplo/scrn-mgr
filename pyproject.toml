@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "scrn-mgr"
+version = "0.1.0"
+description = "GNU screen session manager: CLI, Textual TUI, and MCP server, with SSH-remote session support"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "ploskon", email = "ploskon@gmail.com" }]
+dependencies = [
+    "typer>=0.12",
+    "rich>=13.0",
+    "textual>=0.60",
+    "mcp>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+]
+
+[project.scripts]
+scrn-mgr = "scrn_mgr.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/scrn_mgr"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
