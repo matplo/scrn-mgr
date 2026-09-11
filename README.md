@@ -82,3 +82,38 @@ Example client config:
 - The `screen` binary (`brew install screen` / `apt install screen`)
 - For remote sessions: SSH access to the target host (via your normal
   `~/.ssh/config`) with `screen` installed there too
+
+## Releasing
+
+Pushing a `v*` tag runs [`.github/workflows/release.yml`](.github/workflows/release.yml),
+which builds the sdist/wheel, publishes them to PyPI via
+[Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (no stored
+secrets), and attaches the build artifacts to a GitHub release.
+
+**One-time setup** (already done for this repo, kept here for reference):
+on the [PyPI project's](https://pypi.org/manage/project/scrn-mgr/) "Publishing"
+settings (or, for the very first release, on
+<https://pypi.org/manage/account/publishing/>), add a trusted publisher with:
+
+| Field | Value |
+|---|---|
+| PyPI project name | `scrn-mgr` |
+| Owner | `matplo` |
+| Repository name | `scrn-mgr` |
+| Workflow name | `release.yml` |
+| Environment name | `pypi` |
+
+**Cutting a release:**
+
+```bash
+# 1. bump the version in pyproject.toml, e.g. 0.1.0 -> 0.1.1, and commit it
+git commit -am "Bump version to 0.1.1"
+
+# 2. tag it (must match pyproject.toml's version, with a v prefix) and push both
+git push
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+The workflow refuses to publish if the tag and `pyproject.toml`'s `version`
+disagree.
