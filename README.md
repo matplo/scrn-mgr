@@ -7,17 +7,20 @@ machine or on remote nodes reachable over SSH -- `scrn-mgr` keeps a small
 registry at `~/.scrn-mgr/registry.json` recording which host each session
 is on.
 
-## Install (dev)
-
-This project is developed inside a named [`henv`](https://github.com/) environment, `devel`:
+## Install
 
 ```bash
-henv -n devel -x pip install -e ".[dev]"
-henv -n devel -x pytest -q
+pip install scrn-mgr
 ```
 
-`python`, `pytest`, and the installed `scrn-mgr` executable are all run the
-same way: `henv -n devel -x <command> ...`.
+## Development
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+pytest -q
+```
 
 ## Quick start (Python API)
 
@@ -98,7 +101,7 @@ settings (or, for the very first release, on
 | Field | Value |
 |---|---|
 | PyPI project name | `scrn-mgr` |
-| Owner | `matplo` |
+| Owner | this repository's GitHub owner (user or org) |
 | Repository name | `scrn-mgr` |
 | Workflow name | `release.yml` |
 | Environment name | `pypi` |

@@ -9,7 +9,6 @@ description = "GNU screen session manager: CLI, Textual TUI, and MCP server, wit
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "ploskon", email = "ploskon@gmail.com" }]
 dependencies = [
     "typer>=0.12",
     "rich>=13.0",
