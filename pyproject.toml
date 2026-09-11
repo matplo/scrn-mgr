@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "scrn-mgr"
-version = "0.1.0"
+version = "0.1.1"
 description = "GNU screen session manager: CLI, Textual TUI, and MCP server, with SSH-remote session support"
 readme = "README.md"
 requires-python = ">=3.10"
