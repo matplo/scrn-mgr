@@ -4,8 +4,12 @@ A GNU `screen` session manager: CLI first, with a Rich/Textual TUI and an
 MCP server, so sessions can be driven the same way from a terminal, a
 human-friendly UI, or an AI assistant. Sessions can live on the local
 machine or on remote nodes reachable over SSH -- `scrn-mgr` keeps a small
-registry at `~/.scrn-mgr/registry.json` recording which host each session
-is on.
+registry at `~/.scrn-mgr/registry.json` recording which host (hostname +
+best-effort IP) each session is on. That registry can itself be shared
+across a cluster (e.g. a networked $HOME): every operation figures out
+whether a recorded host is actually *this* machine and runs `screen`
+directly when it is, or over SSH (by hostname, falling back to the
+recorded IP) when it isn't.
 
 ## Install
 
@@ -48,7 +52,7 @@ scrn-mgr attach work                    # interactive; ssh -t under the hood if 
 scrn-mgr new-or-attach work             # alias: create-or-attach
 scrn-mgr kill work
 scrn-mgr cleanup work                   # or: scrn-mgr cleanup --all
-scrn-mgr tui                            # Textual UI
+scrn-mgr tui                            # Textual UI (alias: scrn-mgr-tui)
 scrn-mgr serve                          # MCP server (stdio)
 ```
 
@@ -78,6 +82,36 @@ Example client config:
   }
 }
 ```
+
+## Configuration
+
+| Variable | Effect |
+|---|---|
+| `SCRN_MGR_HOME` | Overrides the state directory (default `~/.scrn-mgr`) that holds `registry.json` and its lock file |
+
+## Clusters and shared registries
+
+A session's host is recorded automatically: with no `--host`, `scrn-mgr`
+detects *this* machine's real hostname (`$HOST`, then `$HOSTNAME`, then
+`socket.gethostname()`) and its resolved IP, rather than a bare "local"
+placeholder. This matters when `~/.scrn-mgr` lives on shared storage (a
+networked $HOME across a cluster): every command -- from any node -- can
+tell whether a session's recorded host is the machine it's currently
+running on, and:
+
+- **If it is** (including landing back on the exact node that created it),
+  everything runs `screen` directly, no SSH involved.
+- **If it isn't**, `list`/`send`/`capture`/`kill`/`cleanup` transparently go
+  over SSH to that host (by hostname, falling back to the recorded IP).
+  A session whose host can't currently be reached shows status `unknown`
+  rather than `dead` -- it just means the check couldn't be done, not that
+  the session is gone.
+- **`attach`** needs a real terminal, so it isn't attempted blindly over
+  SSH to a host we can't otherwise confirm is reachable in the same way:
+  if the session isn't on this machine, `scrn-mgr attach NAME` runs
+  `ssh -t <host> screen -r NAME`, and if that SSH connection itself fails,
+  it suggests connecting manually (`ssh <host>`, then `scrn-mgr attach
+  NAME` there) instead of just erroring out.
 
 ## Requirements
 

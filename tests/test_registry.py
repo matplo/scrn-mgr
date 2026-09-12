@@ -25,6 +25,42 @@ def test_add_remote_host_roundtrip(registry: Registry) -> None:
     assert str(fetched.host) == "user@gpu01.cluster:2222"
 
 
+def test_host_ip_roundtrip(registry: Registry) -> None:
+    host = Host(hostname="node042", ip="10.0.5.42")
+    registry.add("gpu", host)
+    fetched = registry.get("gpu")
+    assert fetched.host.hostname == "node042"
+    assert fetched.host.ip == "10.0.5.42"
+
+
+def test_reads_pre_0_2_string_host_value(registry: Registry) -> None:
+    # registries written before 0.2 stored "host" as a plain spec string or null
+    import json
+
+    registry.state_dir.mkdir(parents=True, exist_ok=True)
+    data = {
+        "version": 1,
+        "sessions": {
+            "legacy": {
+                "host": "user@old-host:22",
+                "created_at": "2024-01-01T00:00:00+00:00",
+                "notes": "",
+            },
+            "legacy-local": {"host": None, "created_at": "2024-01-01T00:00:00+00:00", "notes": ""},
+        },
+    }
+    registry.path.write_text(json.dumps(data))
+
+    remote = registry.get("legacy")
+    assert remote.host.user == "user"
+    assert remote.host.hostname == "old-host"
+    assert remote.host.port == 22
+    assert remote.host.ip is None
+
+    local = registry.get("legacy-local")
+    assert local.host.is_local
+
+
 def test_duplicate_name_raises(registry: Registry) -> None:
     registry.add("work", Host())
     with pytest.raises(SessionExistsError):

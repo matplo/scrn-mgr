@@ -66,6 +66,55 @@ def test_attach_argv_remote_uses_ssh_dash_t() -> None:
     assert argv[-1] == "screen -r work"
 
 
+def test_run_falls_back_to_ip_when_hostname_ssh_fails(monkeypatch) -> None:
+    host = Host(hostname="stale-dns-name.invalid", ip="203.0.113.7")
+    calls = []
+
+    def fake_run_once(argv, timeout):
+        import subprocess
+
+        calls.append(argv)
+        target = argv[argv.index("--") - 1]
+        returncode = 255 if "stale-dns-name.invalid" in target else 0
+        return subprocess.CompletedProcess(argv, returncode, "ok" if returncode == 0 else "", "")
+
+    monkeypatch.setattr(screen_backend, "_run_once", fake_run_once)
+    proc = screen_backend.run(host, ["screen", "-ls"], check=False)
+
+    def target_of(argv: list[str]) -> str:
+        return argv[argv.index("--") - 1]
+
+    assert len(calls) == 2
+    assert "stale-dns-name.invalid" in target_of(calls[0])
+    assert "203.0.113.7" in target_of(calls[1])
+    assert proc.returncode == 0
+
+
+def test_run_reports_final_failure_when_all_targets_fail(monkeypatch) -> None:
+    import subprocess
+
+    host = Host(hostname="stale-dns-name.invalid", ip="203.0.113.7")
+    monkeypatch.setattr(
+        screen_backend,
+        "_run_once",
+        lambda argv, timeout: subprocess.CompletedProcess(argv, 255, "", "connection refused"),
+    )
+    proc = screen_backend.run(host, ["screen", "-ls"], check=False)
+    assert proc.returncode == 255
+
+
+def test_list_sessions_raw_returns_none_when_unreachable(monkeypatch) -> None:
+    import subprocess
+
+    host = Host(hostname="stale-dns-name.invalid", ip="203.0.113.7")
+    monkeypatch.setattr(
+        screen_backend,
+        "_run_once",
+        lambda argv, timeout: subprocess.CompletedProcess(argv, 255, "", "connection refused"),
+    )
+    assert screen_backend.list_sessions_raw(host) is None
+
+
 def test_run_wraps_remote_command_as_single_shlex_joined_string() -> None:
     host = Host.parse("user@gpu01")
     # A name with a space must survive as one argument on the remote end.

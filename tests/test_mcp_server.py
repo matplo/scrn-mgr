@@ -2,7 +2,7 @@ import time
 
 import pytest
 
-from scrn_mgr import mcp_server
+from scrn_mgr import hostinfo, mcp_server
 from scrn_mgr.exceptions import SessionNotFoundError
 
 from .conftest import requires_screen
@@ -39,7 +39,8 @@ def test_mcp_tools_full_roundtrip(state_dir, session_name: str) -> None:
     try:
         created = mcp_server.new_session(session_name)
         assert created["name"] == session_name
-        assert created["host"] == "local"
+        assert created["host"] == hostinfo.detect_hostname()
+        assert "ip" in created
 
         assert "sent" in mcp_server.send_command(session_name, "echo mcp_marker")
         time.sleep(0.3)

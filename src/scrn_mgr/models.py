@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
+from scrn_mgr import hostinfo
+
 _HOST_RE = re.compile(
     r"^(?:(?P<user>[^@\s]+)@)?(?P<hostname>[^:\s]+)(?::(?P<port>\d+))?$"
 )
@@ -18,6 +20,8 @@ class Host:
     user: str | None = None
     hostname: str | None = None  # None means "local machine"
     port: int | None = None
+    ip: str | None = None  # best-effort resolved IP, recorded for display and
+    # as an SSH fallback target if the hostname alone isn't reachable/resolvable
 
     @property
     def is_local(self) -> bool:
@@ -34,6 +38,15 @@ class Host:
         port = int(m.group("port")) if m.group("port") else None
         return cls(user=m.group("user"), hostname=m.group("hostname"), port=port)
 
+    @classmethod
+    def detect_local(cls, user: str | None = None, port: int | None = None) -> "Host":
+        """The machine this code is running on right now, recorded by its real
+        hostname (+ best-effort IP) rather than a bare "local" placeholder --
+        so a registry shared across a cluster still says *which* node a
+        session is actually on."""
+        hostname = hostinfo.detect_hostname()
+        return cls(user=user, hostname=hostname, port=port, ip=hostinfo.detect_ip(hostname))
+
     def __str__(self) -> str:
         if self.is_local:
             return "local"
@@ -44,9 +57,26 @@ class Host:
             s = f"{s}:{self.port}"
         return s
 
-    def to_registry(self) -> str | None:
-        """Value stored in the registry JSON: None for local, else the spec string."""
-        return None if self.is_local else str(self)
+    def to_registry(self) -> dict | None:
+        """Value stored in the registry JSON: None for a bare local host,
+        else a dict (hostname/user/port/ip)."""
+        if self.hostname is None:
+            return None
+        return {"user": self.user, "hostname": self.hostname, "port": self.port, "ip": self.ip}
+
+    @classmethod
+    def from_registry_value(cls, value) -> "Host":
+        if value is None:
+            return cls()
+        if isinstance(value, str):
+            # registries written before 0.2 stored a plain "[user@]host[:port]" string
+            return cls.parse(value)
+        return cls(
+            user=value.get("user"),
+            hostname=value.get("hostname"),
+            port=value.get("port"),
+            ip=value.get("ip"),
+        )
 
 
 def now_iso() -> str:
@@ -62,7 +92,9 @@ class SessionRecord:
     created_at: str = field(default_factory=now_iso)
     notes: str = ""
 
-    # Populated when reconciled against live `screen -ls` output; None means "unknown".
+    # Populated when reconciled against live `screen -ls` output. alive=None
+    # means "couldn't check" (e.g. the host is unreachable over SSH right
+    # now) -- distinct from alive=False, which means we *confirmed* it's gone.
     pid: int | None = None
     attached: bool | None = None
     alive: bool | None = None
@@ -87,7 +119,7 @@ class SessionRecord:
     def from_registry(cls, name: str, data: dict) -> "SessionRecord":
         return cls(
             name=name,
-            host=Host.parse(data.get("host")),
+            host=Host.from_registry_value(data.get("host")),
             created_at=data.get("created_at", now_iso()),
             notes=data.get("notes", ""),
         )

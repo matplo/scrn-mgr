@@ -29,6 +29,7 @@ def _record_to_dict(r: SessionRecord) -> dict:
     return {
         "name": r.name,
         "host": str(r.host),
+        "ip": r.host.ip,
         "status": r.status,
         "tracked": r.tracked,
         "pid": r.pid,

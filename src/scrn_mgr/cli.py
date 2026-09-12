@@ -193,13 +193,18 @@ def serve() -> None:
 @app.command("tui")
 def tui() -> None:
     """Launch the Textual TUI."""
-    from scrn_mgr.tui.app import ScrnMgrApp
-
-    ScrnMgrApp().run()
+    tui_main()
 
 
 def main() -> None:
     app()
+
+
+def tui_main() -> None:
+    """Entry point for the `scrn-mgr-tui` console script (alias for `scrn-mgr tui`)."""
+    from scrn_mgr.tui.app import ScrnMgrApp
+
+    ScrnMgrApp().run()
 
 
 if __name__ == "__main__":

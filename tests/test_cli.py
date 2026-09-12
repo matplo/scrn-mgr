@@ -71,3 +71,11 @@ def test_create_alias_matches_new(state_dir) -> None:
     # `create` is a hidden alias of `new` -- both should be recognized commands.
     assert "create" in {c.name for c in app.registered_commands}
     assert "create-or-attach" in {c.name for c in app.registered_commands}
+
+
+def test_scrn_mgr_tui_console_script_registered() -> None:
+    from importlib.metadata import entry_points
+
+    scripts = {ep.name: ep.value for ep in entry_points(group="console_scripts")}
+    assert scripts.get("scrn-mgr") == "scrn_mgr.cli:main"
+    assert scripts.get("scrn-mgr-tui") == "scrn_mgr.cli:tui_main"

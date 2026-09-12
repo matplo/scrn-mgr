@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "scrn-mgr"
-version = "0.1.1"
+version = "0.1.2"
 description = "GNU screen session manager: CLI, Textual TUI, and MCP server, with SSH-remote session support"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,6 +16,11 @@ dependencies = [
     "mcp>=1.0,<2", # mcp 2.x renamed FastMCP -> MCPServer; mcp_server.py targets the 1.x API
 ]
 
+[project.urls]
+Homepage = "https://github.com/matplo/scrn-mgr"
+Repository = "https://github.com/matplo/scrn-mgr"
+Issues = "https://github.com/matplo/scrn-mgr/issues"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
@@ -24,6 +29,7 @@ dev = [
 
 [project.scripts]
 scrn-mgr = "scrn_mgr.cli:main"
+scrn-mgr-tui = "scrn_mgr.cli:tui_main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/scrn_mgr"]

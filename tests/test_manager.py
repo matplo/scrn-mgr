@@ -2,8 +2,10 @@ import time
 
 import pytest
 
+from scrn_mgr import hostinfo
 from scrn_mgr.exceptions import SessionExistsError, SessionNotFoundError
 from scrn_mgr.manager import ScreenSessionManager
+from scrn_mgr.models import Host
 
 from .conftest import requires_screen
 
@@ -16,6 +18,51 @@ def test_send_command_to_unknown_session_raises(manager: ScreenSessionManager) -
 def test_capture_unknown_session_raises(manager: ScreenSessionManager) -> None:
     with pytest.raises(SessionNotFoundError):
         manager.capture("nope")
+
+
+@requires_screen
+def test_new_session_records_real_hostname(manager: ScreenSessionManager, session_name: str) -> None:
+    try:
+        record = manager.new_session(session_name)
+        assert record.host.hostname == hostinfo.detect_hostname()
+        assert str(record.host) == hostinfo.detect_hostname()
+    finally:
+        manager.kill_session(session_name)
+
+
+def test_list_sessions_marks_unreachable_host_as_unknown(
+    manager: ScreenSessionManager, monkeypatch
+) -> None:
+    unreachable = Host(hostname="stale-dns-name.invalid", ip="203.0.113.7")
+    manager.registry.add("remote-thing", unreachable)
+
+    def fake_list_raw(host):
+        if host.hostname == "stale-dns-name.invalid":
+            return None
+        return []
+
+    monkeypatch.setattr("scrn_mgr.manager.screen_backend.list_sessions_raw", fake_list_raw)
+
+    all_sessions = manager.list_sessions(all_sessions=True)
+    record = next(r for r in all_sessions if r.name == "remote-thing")
+    assert record.alive is None
+    assert record.status == "unknown"
+
+    # not confirmed dead -> still shows up in the default (non-all) view
+    default_sessions = manager.list_sessions(all_sessions=False)
+    assert any(r.name == "remote-thing" for r in default_sessions)
+
+
+def test_cleanup_session_leaves_unreachable_host_alone(
+    manager: ScreenSessionManager, monkeypatch
+) -> None:
+    unreachable = Host(hostname="stale-dns-name.invalid", ip="203.0.113.7")
+    manager.registry.add("remote-thing", unreachable)
+    monkeypatch.setattr(
+        "scrn_mgr.manager.screen_backend.list_sessions_raw", lambda host: None
+    )
+    assert manager.cleanup_session("remote-thing") is False
+    assert manager.registry.contains("remote-thing")
 
 
 def test_create_session_alias(manager: ScreenSessionManager) -> None:

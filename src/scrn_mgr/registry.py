@@ -18,7 +18,8 @@ from typing import Iterator
 from scrn_mgr.exceptions import SessionExistsError, SessionNotFoundError
 from scrn_mgr.models import Host, SessionRecord
 
-REGISTRY_VERSION = 1
+REGISTRY_VERSION = 2  # v2: "host" is a dict (hostname/user/port/ip); v1 (a plain
+# spec string or null) is still read transparently by Host.from_registry_value
 
 
 def default_state_dir() -> Path:
