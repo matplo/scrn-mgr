@@ -76,6 +76,7 @@ class ScrnMgrApp(App[None]):
         Binding("c", "capture", "Capture"),
         Binding("k", "kill", "Kill"),
         Binding("x", "cleanup", "Cleanup"),
+        Binding("X", "forget", "Forget"),
         Binding("r", "refresh", "Refresh"),
         Binding("q", "quit", "Quit"),
     ]
@@ -169,7 +170,24 @@ class ScrnMgrApp(App[None]):
         if not name:
             return
         try:
-            self.manager.cleanup_session(name)
+            status = self.manager.cleanup_session_status(name)
+        except ScrnMgrError as exc:
+            self._report_error(exc)
+        else:
+            if status == "unreachable":
+                self.notify(
+                    f"{name}: host unreachable, left in place (X to forget it anyway)",
+                    severity="warning",
+                )
+        self.action_refresh()
+
+    def action_forget(self) -> None:
+        """Drop the selected entry from the registry without checking its host."""
+        name = self._selected_name()
+        if not name:
+            return
+        try:
+            self.manager.cleanup_session(name, force=True)
         except ScrnMgrError as exc:
             self._report_error(exc)
         self.action_refresh()

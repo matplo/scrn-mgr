@@ -81,10 +81,16 @@ def capture(name: str, lines: int = -1) -> str:
 
 
 @mcp.tool()
-def cleanup_session(name: str) -> str:
-    """Remove `name` from the registry if it is no longer alive."""
-    removed = _manager().cleanup_session(name)
-    return f"{name!r} {'removed' if removed else 'still alive, left in place'}"
+def cleanup_session(name: str, force: bool = False) -> str:
+    """Remove `name` from the registry if it is no longer alive. force=True
+    drops the entry without checking (for sessions on an unreachable host,
+    e.g. a rebooted node); it never kills anything."""
+    status = _manager().cleanup_session_status(name, force=force)
+    return {
+        "removed": f"{name!r} removed",
+        "alive": f"{name!r} still alive, left in place",
+        "unreachable": f"{name!r} host unreachable, left in place (pass force=true to drop it)",
+    }[status]
 
 
 @mcp.tool()

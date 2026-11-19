@@ -65,6 +65,46 @@ def test_cleanup_session_leaves_unreachable_host_alone(
     assert manager.registry.contains("remote-thing")
 
 
+def test_cleanup_force_removes_unreachable_without_checking(
+    manager: ScreenSessionManager, monkeypatch
+) -> None:
+    manager.registry.add("rebooted", Host(hostname="gone.invalid", ip="203.0.113.7"))
+
+    def boom(host):
+        raise AssertionError("force must not probe the host")
+
+    monkeypatch.setattr("scrn_mgr.manager.screen_backend.list_sessions_raw", boom)
+    assert manager.cleanup_session_status("rebooted", force=True) == "removed"
+    assert not manager.registry.contains("rebooted")
+
+
+def test_cleanup_all_include_unreachable(manager: ScreenSessionManager, monkeypatch) -> None:
+    manager.registry.add("rebooted", Host(hostname="gone.invalid"))
+    manager.registry.add("running", Host(hostname="up.invalid"))
+    monkeypatch.setattr(
+        "scrn_mgr.manager.screen_backend.list_sessions_raw",
+        lambda host: None if host.hostname == "gone.invalid"
+        else [{"name": "running", "pid": 1, "attached": False}],
+    )
+    assert manager.cleanup_all() == []
+    assert manager.cleanup_session_status("rebooted") == "unreachable"
+    assert manager.cleanup_all(include_unreachable=True) == ["rebooted"]
+    assert manager.registry.contains("running")
+
+
+def test_kill_unreachable_host_raises(manager: ScreenSessionManager, monkeypatch) -> None:
+    import subprocess
+    from scrn_mgr.exceptions import ScrnMgrError
+
+    manager.registry.add("rebooted", Host(hostname="gone.invalid"))
+    monkeypatch.setattr(
+        "scrn_mgr.manager.screen_backend.run",
+        lambda host, argv, check=True, timeout=30: subprocess.CompletedProcess(argv, 255, "", ""),
+    )
+    with pytest.raises(ScrnMgrError, match="--force"):
+        manager.kill_session("rebooted")
+
+
 def test_create_session_alias(manager: ScreenSessionManager) -> None:
     assert ScreenSessionManager.create_session is ScreenSessionManager.new_session
 

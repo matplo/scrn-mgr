@@ -165,18 +165,46 @@ def kill(name: str) -> None:
 def cleanup(
     name: Optional[str] = typer.Argument(None, help="Session name (omit with --all)"),
     all_: bool = typer.Option(False, "--all", help="Prune every dead registry entry"),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help=(
+            "With NAME: drop the entry without checking its host at all. "
+            "With --all: also drop entries whose host is unreachable (status 'unknown'). "
+            "Never kills anything."
+        ),
+    ),
 ) -> None:
-    """Remove dead sessions from the registry."""
+    """Remove dead sessions from the registry (--force for unreachable ones)."""
     with _reporting_errors():
         if all_:
-            removed = _manager().cleanup_all()
-            console.print(f"removed {len(removed)} dead entr{'y' if len(removed)==1 else 'ies'}: {removed}")
+            removed = _manager().cleanup_all(include_unreachable=force)
+            console.print(f"removed {len(removed)} entr{'y' if len(removed)==1 else 'ies'}: {removed}")
         elif name:
-            removed = _manager().cleanup_session(name)
-            console.print(f"{name!r} {'removed' if removed else 'still alive, left in place'}")
+            status = _manager().cleanup_session_status(name, force=force)
+            if status == "removed":
+                console.print(f"{name!r} removed")
+            elif status == "alive":
+                console.print(f"{name!r} still alive, left in place")
+            else:
+                console.print(
+                    f"{name!r} host unreachable, left in place "
+                    f"(use `scrn-mgr cleanup {name} --force` to drop it anyway)"
+                )
         else:
             err_console.print("[bold red]error:[/bold red] pass a NAME or --all")
             raise typer.Exit(code=1)
+
+
+@app.command("forget")
+def forget(names: list[str] = typer.Argument(..., help="Session name(s)")) -> None:
+    """Drop session(s) from the registry unconditionally (same as `cleanup NAME --force`)."""
+    with _reporting_errors():
+        m = _manager()
+        for n in names:
+            m.cleanup_session(n, force=True)
+            console.print(f"{n!r} removed")
 
 
 # -- MCP + TUI -------------------------------------------------------------

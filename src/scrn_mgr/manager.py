@@ -176,19 +176,62 @@ class ScreenSessionManager:
 
     def kill_session(self, name: str) -> None:
         """Terminate the live screen process. Leaves the registry entry in place
-        (now dead) -- run cleanup_session/cleanup_all to prune it."""
-        record = self.registry.get(name)
-        screen_backend.run(record.host, screen_backend.quit_argv(name), check=False)
+        (now dead) -- run cleanup_session/cleanup_all to prune it.
 
-    def cleanup_session(self, name: str) -> bool:
-        """Remove `name` from the registry if it's confirmed no longer alive.
-        Returns whether it was removed -- False both when it's still alive
-        and when its host couldn't be reached to check (never guesses)."""
+        Raises ScrnMgrError if the session's host can't be reached at all
+        (e.g. the node was rebooted or is down), since nothing was killed --
+        use cleanup_session(name, force=True) to just drop the entry."""
+        record = self.registry.get(name)
+        proc = screen_backend.run(record.host, screen_backend.quit_argv(name), check=False)
+        if (
+            not hostinfo.resolves_to_local(record.host)
+            and proc.returncode == screen_backend.SSH_CONNECT_FAILED
+        ):
+            raise ScrnMgrError(
+                f"couldn't reach {record.host} to kill {name!r} (nothing was killed). "
+                f"If you know it's gone, drop it from the registry with "
+                f"`scrn-mgr cleanup {name} --force`."
+            )
+
+    def cleanup_session_status(self, name: str, force: bool = False) -> str:
+        """Like cleanup_session, but says why: "removed", "alive" (still
+        running, left in place) or "unreachable" (host couldn't be checked,
+        left in place).
+
+        force=True skips the liveness check entirely and always removes the
+        registry entry -- for sessions you know are gone but whose host can't
+        be reached (rebooted/decommissioned node). It never touches a live
+        screen process; if one does still exist, it just becomes untracked."""
+        self.registry.get(name)  # raises SessionNotFoundError if unknown
+        if force:
+            self.registry.remove_if_present(name)
+            return "removed"
         record = self.registry.get(name)
         live = screen_backend.list_sessions_raw(record.host)
-        if live is None or any(e["name"] == name for e in live):
-            return False
-        return self.registry.remove_if_present(name)
+        if live is None:
+            return "unreachable"
+        if any(e["name"] == name for e in live):
+            return "alive"
+        self.registry.remove_if_present(name)
+        return "removed"
 
-    def cleanup_all(self) -> list[str]:
-        return [r.name for r in self.registry.list() if self.cleanup_session(r.name)]
+    def cleanup_session(self, name: str, force: bool = False) -> bool:
+        """Remove `name` from the registry if it's confirmed no longer alive.
+        Returns whether it was removed -- False both when it's still alive
+        and when its host couldn't be reached to check (never guesses),
+        unless force=True (see cleanup_session_status)."""
+        return self.cleanup_session_status(name, force=force) == "removed"
+
+    def cleanup_all(self, include_unreachable: bool = False) -> list[str]:
+        """Prune every confirmed-dead entry. include_unreachable=True also
+        prunes entries whose host can't currently be reached (status
+        "unknown"); confirmed-alive sessions are never removed."""
+        removed = []
+        for r in self.registry.list():
+            status = self.cleanup_session_status(r.name)
+            if status == "unreachable" and include_unreachable:
+                self.registry.remove_if_present(r.name)
+                status = "removed"
+            if status == "removed":
+                removed.append(r.name)
+        return removed

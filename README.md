@@ -52,6 +52,9 @@ scrn-mgr attach work                    # interactive; ssh -t under the hood if 
 scrn-mgr new-or-attach work             # alias: create-or-attach
 scrn-mgr kill work
 scrn-mgr cleanup work                   # or: scrn-mgr cleanup --all
+scrn-mgr cleanup work --force           # drop it even if its host is unreachable
+scrn-mgr cleanup --all --force          # also drop every 'unknown' (unreachable-host) entry
+scrn-mgr forget work other              # same as cleanup --force, for several names
 scrn-mgr tui                            # Textual UI (alias: scrn-mgr-tui)
 scrn-mgr serve                          # MCP server (stdio)
 ```
@@ -105,7 +108,11 @@ running on, and:
   over SSH to that host (by hostname, falling back to the recorded IP).
   A session whose host can't currently be reached shows status `unknown`
   rather than `dead` -- it just means the check couldn't be done, not that
-  the session is gone.
+  the session is gone. `cleanup` leaves such entries alone; if you know
+  the session is gone (e.g. the node was rebooted), drop it with
+  `scrn-mgr cleanup NAME --force` / `scrn-mgr forget NAME`, or prune every
+  unreachable entry with `scrn-mgr cleanup --all --force`. In the TUI,
+  `X` forgets the selected entry. Forcing never kills anything.
 - **`attach`** needs a real terminal, so it isn't attempted blindly over
   SSH to a host we can't otherwise confirm is reachable in the same way:
   if the session isn't on this machine, `scrn-mgr attach NAME` runs
